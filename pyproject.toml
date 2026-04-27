@@ -1,7 +1,7 @@
 [project]
 name = "kbparse"
 version = "0.1.0"
-description = "PDF-first company knowledge-base parser with Markdown and RAG chunk outputs"
+description = "Visual PDF-to-RAG parser with Markdown, structured chunks, cropped figures/tables, and VLM-ready image descriptions"
 requires-python = ">=3.11"
 dependencies = [
   "pydantic>=2.7",

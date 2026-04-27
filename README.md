@@ -1,6 +1,8 @@
-# KBParse
+# Visual PDF2RAG
 
-PDF-first company knowledge-base parser MVP.
+**Visual PDF2RAG** is a PDF-to-RAG parser for research papers and knowledge-base documents. It converts PDFs into clean Markdown, structured RAG chunks, cropped figures/tables, and VLM-ready image descriptions.
+
+Keywords: `PDF to RAG`, `PDF parser`, `Markdown extraction`, `Docling`, `PyMuPDF`, `visual RAG`, `document AI`, `figure extraction`, `table extraction`, `knowledge base ingestion`.
 
 ## Quickstart / validation
 
