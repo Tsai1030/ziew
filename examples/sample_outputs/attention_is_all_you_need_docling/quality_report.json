@@ -1,0 +1,16 @@
+{
+  "doc_id": "attention_is_all_you_need",
+  "parser": "docling",
+  "page_count": 15,
+  "element_counts": {
+    "paragraph": 94,
+    "heading": 27,
+    "figure": 6,
+    "table": 4
+  },
+  "asset_count": 10,
+  "missing_asset_count": 0,
+  "pending_description_count": 0,
+  "validation_ok": true,
+  "issues": []
+}
