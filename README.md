@@ -88,6 +88,49 @@ uv run kbparse validate ./output_docling_table/docling_table_smoke
 
 Note: Docling may classify simple drawn/vector tables as pictures depending on the source PDF and Docling model behavior. The adapter now uses table-like captions such as `表 1` / `Table 1` as a conservative fallback signal, so those picture nodes become `table_image` elements and are cropped into `assets/tables/`.
 
+## Image / table-image enrichment
+
+Parsing does not require API keys. With `--provider mock`, KBParse creates deterministic descriptions for tests and local smoke runs.
+
+For real image descriptions, use the OpenAI-compatible provider:
+
+```bash
+cp .env.example .env
+# Fill KBPARSE_VLM_API_KEY locally. Do not commit .env.
+
+uv run --with docling kbparse ingest ./your.pdf ./output --parser docling --provider mock
+uv run kbparse enrich-images ./output/<doc_id> --provider openai-compatible
+uv run kbparse validate ./output/<doc_id>
+```
+
+Supported environment variables:
+
+```text
+KBPARSE_VLM_API_KEY=...
+KBPARSE_VLM_BASE_URL=https://api.openai.com/v1
+KBPARSE_VLM_MODEL=gpt-4o-mini
+```
+
+`OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_VISION_MODEL` are also accepted as aliases. Any OpenAI-compatible `/v1/chat/completions` endpoint that supports `image_url` data URLs can be used, including local VLM servers.
+
+The enrichment stage updates only derived fields:
+
+```text
+alt_text_short
+description_long
+enrichment.provider / model / confidence / needs_human_review / visual_category
+```
+
+It preserves original `asset_path`, page, bbox, captions, and parser evidence. Markdown then renders completed descriptions as:
+
+```markdown
+![Transformer 架構圖](assets/figures/p0003_fig001.png)
+
+> 圖片摘要：此圖說明 encoder 與 decoder 的注意力流程。
+```
+
+`chunks.jsonl` is rebuilt after enrichment. The chunk metadata keeps `asset_path` / `related_assets`, while `text_for_embedding` still excludes raw image paths.
+
 Current Docling adapter limitations:
 
 - It maps Docling `body.children` references for text/caption/table/picture nodes, including page number and normalized bbox when `prov` exists.
@@ -97,7 +140,7 @@ Current Docling adapter limitations:
 - It uses table-like captions such as `表 1` / `Table 1` as a conservative fallback to classify Docling picture nodes as `table_image` and store them in `assets/tables/`.
 - It crops Docling picture regions from the source PDF into `assets/figures/` using Docling bbox coordinates.
 - It associates the nearest same-page caption with figure and table elements as `caption_nearby`.
-- It creates pending visual elements so VLM enrichment can run later.
+- It creates pending visual elements so VLM enrichment can run later with either the mock provider or a real OpenAI-compatible provider.
 - It falls back to exported Markdown only when no mappable Docling body elements exist.
 - It does not yet implement a general visual table classifier when there is no table-like caption.
 - Future work should add richer heading levels, stronger visual classifier heuristics, and better caption-to-table/figure matching.
@@ -111,12 +154,12 @@ Current Docling adapter limitations:
 
 ## MVP scope
 
-The current MVP implements a deterministic fake parser, a PyMuPDF text-layer parser skeleton, an optional Docling adapter with direct body/text/table/picture mapping, figure crops, table crops, table cell/HTML metadata preservation, canonical `document.json`, Markdown export with standard image syntax, structured chunk building, mock VLM enrichment, validation, and quality reports.
+The current MVP implements a deterministic fake parser, a PyMuPDF text-layer parser skeleton, an optional Docling adapter with direct body/text/table/picture mapping, figure crops, table crops, table cell/HTML metadata preservation, canonical `document.json`, Markdown export with standard image syntax, structured chunk building, mock VLM enrichment, real OpenAI-compatible VLM image/table-image enrichment, validation, and quality reports.
 
 ## Not yet in scope
 
 - OCR for scanned PDFs.
 - General visual table classification when Docling emits a picture and there is no table-like caption.
 - Marker adapter.
-- Real OpenAI / Gemini / local VLM providers.
+- Provider-specific adapters beyond OpenAI-compatible endpoints.
 - Vector database ingestion.

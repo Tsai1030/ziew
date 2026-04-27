@@ -15,6 +15,7 @@ from kbparse.parsers.docling_parser import DoclingParser
 from kbparse.parsers.fake_parser import FakeParser
 from kbparse.parsers.pymupdf_parser import PyMuPDFParser
 from kbparse.providers.mock_provider import MockVLMProvider
+from kbparse.providers.openai_compatible_provider import OpenAICompatibleVLMProvider
 from kbparse.quality.report import build_quality_report
 from kbparse.validation import validate_doc_output
 
@@ -35,6 +36,8 @@ def _parser(name: str):
 def _provider(name: str):
     if name == "mock":
         return MockVLMProvider()
+    if name in {"openai-compatible", "openai"}:
+        return OpenAICompatibleVLMProvider()
     raise typer.BadParameter(f"Unsupported provider: {name}")
 
 
@@ -85,7 +88,7 @@ def build_chunks_command(doc_dir: Path):
 @app.command("enrich-images")
 def enrich_images_command(doc_dir: Path, provider: str = typer.Option("mock", "--provider")):
     doc = load_document_json(doc_dir / "document.json")
-    enriched = enrich_images(doc, _provider(provider))
+    enriched = enrich_images(doc, _provider(provider), asset_root=doc_dir)
     save_document_json(enriched, doc_dir / "document.json")
     (doc_dir / "document.md").write_text(export_markdown(enriched), encoding="utf-8")
     if (doc_dir / "chunks.jsonl").exists():
@@ -113,7 +116,7 @@ def ingest_command(pdf_input: Path, output_root: Path, parser: str = typer.Optio
     doc_dirs = [_parse_one(pdf, output_root, parser) for pdf in _pdfs(pdf_input)]
     for doc_dir in doc_dirs:
         doc = load_document_json(doc_dir / "document.json")
-        enriched = enrich_images(doc, _provider(provider))
+        enriched = enrich_images(doc, _provider(provider), asset_root=doc_dir)
         save_document_json(enriched, doc_dir / "document.json")
         (doc_dir / "document.md").write_text(export_markdown(enriched), encoding="utf-8")
         write_chunks_jsonl(build_chunks(enriched, include_evidence_units=True), doc_dir / "chunks.jsonl")
