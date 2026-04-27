@@ -8,10 +8,14 @@ def _alt(el: Element) -> str:
         return el.alt_text_short
     if el.caption_nearby and el.description_status == "done":
         return el.caption_nearby
-    if el.page:
+    if el.type in {"figure", "image"} and el.page:
         # p0001_fig001 -> 1
         idx = el.element_id.split("fig")[-1].lstrip("0") or "1"
         return f"圖片：第 {el.page} 頁圖 {idx}，待描述"
+    if el.type == "table_image" and el.page:
+        return f"表格圖片：第 {el.page} 頁，待描述"
+    if el.page:
+        return f"圖片：第 {el.page} 頁，待描述"
     return "圖片，待描述"
 
 

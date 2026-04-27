@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -173,11 +174,30 @@ class DoclingParser:
         source = {"parser": self.name, "docling_ref": ref}
 
         if ref.startswith("#/pictures/") or label in {"picture", "figure"}:
+            caption = self._nearest_caption(captions, page_no, bbox)
+            if self._caption_looks_like_table(caption):
+                table_counts[page_no] = table_counts.get(page_no, 0) + 1
+                table_idx = table_counts[page_no]
+                asset_path = make_asset_path(page_no, "table", table_idx, ext="png")
+                self._crop_pdf_region(pdf_path, output_doc_dir / asset_path, page_no, prov.get("bbox") if prov else None)
+                return Element(
+                    element_id=f"p{page_no:04d}_tableimg{table_idx:03d}",
+                    type="table_image",
+                    page=page_no,
+                    bbox=bbox,
+                    reading_order=reading_order,
+                    section_path=[],
+                    asset_path=asset_path,
+                    markdown=f"![表格圖片：第 {page_no} 頁，待描述]({asset_path})",
+                    caption_nearby=caption,
+                    description_status="pending",
+                    metadata={**metadata, "parser_block_type": "docling_table_image", "visual_category": "table"},
+                    source={**source, "crop_method": "docling_bbox_page_render", "classification_reason": "table_caption"},
+                )
             picture_counts[page_no] = picture_counts.get(page_no, 0) + 1
             image_idx = picture_counts[page_no]
             asset_path = make_asset_path(page_no, "figure", image_idx, ext="png")
             self._crop_pdf_region(pdf_path, output_doc_dir / asset_path, page_no, prov.get("bbox") if prov else None)
-            caption = self._nearest_caption(captions, page_no, bbox)
             return Element(
                 element_id=f"p{page_no:04d}_fig{image_idx:03d}",
                 type="figure",
@@ -261,13 +281,16 @@ class DoclingParser:
     def _caption_candidates(self, raw: dict[str, Any], pages: list[Page]) -> list[dict[str, Any]]:
         candidates: list[dict[str, Any]] = []
         for item in raw.get("texts") or []:
-            if not isinstance(item, dict) or str(item.get("label") or "").lower() != "caption":
+            if not isinstance(item, dict):
+                continue
+            label = str(item.get("label") or "").lower()
+            text = str(item.get("text") or item.get("orig") or "").strip()
+            if label != "caption" and not self._caption_looks_like_table(text):
                 continue
             prov = self._first_prov(item)
             page_no = int(prov.get("page_no") or 1) if prov else 1
             page = next((p for p in pages if p.page_num == page_no), None)
             bbox = self._normalize_docling_bbox(prov.get("bbox") if prov else None, page)
-            text = str(item.get("text") or item.get("orig") or "").strip()
             if text:
                 candidates.append({"page": page_no, "bbox": bbox, "text": text})
         return candidates
@@ -288,6 +311,11 @@ class DoclingParser:
             ccy = (cb[1] + cb[3]) / 2
             return abs(cx - ccx) + abs(cy - ccy)
         return min(same_page, key=distance)["text"]
+
+    def _caption_looks_like_table(self, caption: str | None) -> bool:
+        if not caption:
+            return False
+        return bool(re.match(r"^\s*(表|表格|table)\s*[\d一二三四五六七八九十ivx\.:-]*", caption, re.IGNORECASE))
 
     def _crop_pdf_region(self, pdf_path: Path, output_path: Path, page_no: int, bbox: Any) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -86,7 +86,7 @@ uv run --with docling kbparse ingest ./examples/pdfs/docling_table_smoke.pdf ./o
 uv run kbparse validate ./output_docling_table/docling_table_smoke
 ```
 
-Note: Docling may classify simple drawn/vector tables as pictures depending on the source PDF and Docling model behavior. The adapter has unit-level coverage for Docling `table` nodes and will crop them to `assets/tables/` when Docling emits table layout nodes.
+Note: Docling may classify simple drawn/vector tables as pictures depending on the source PDF and Docling model behavior. The adapter now uses table-like captions such as `表 1` / `Table 1` as a conservative fallback signal, so those picture nodes become `table_image` elements and are cropped into `assets/tables/`.
 
 Current Docling adapter limitations:
 
@@ -94,12 +94,13 @@ Current Docling adapter limitations:
 - It converts Docling table cells into basic Markdown tables for canonical table elements.
 - It preserves Docling table cell JSON and table HTML metadata when Docling provides them.
 - It crops Docling table regions from the source PDF into `assets/tables/` using Docling bbox coordinates.
+- It uses table-like captions such as `表 1` / `Table 1` as a conservative fallback to classify Docling picture nodes as `table_image` and store them in `assets/tables/`.
 - It crops Docling picture regions from the source PDF into `assets/figures/` using Docling bbox coordinates.
 - It associates the nearest same-page caption with figure and table elements as `caption_nearby`.
 - It creates pending visual elements so VLM enrichment can run later.
 - It falls back to exported Markdown only when no mappable Docling body elements exist.
-- It does not yet implement high-confidence table classification when Docling itself emits a simple drawn table as `picture` instead of `table`.
-- Future work should add richer heading levels, stronger table/figure classifier heuristics, and better caption-to-table/figure matching.
+- It does not yet implement a general visual table classifier when there is no table-like caption.
+- Future work should add richer heading levels, stronger visual classifier heuristics, and better caption-to-table/figure matching.
 
 ## Manual checks
 
@@ -115,7 +116,7 @@ The current MVP implements a deterministic fake parser, a PyMuPDF text-layer par
 ## Not yet in scope
 
 - OCR for scanned PDFs.
-- High-confidence fallback classification when Docling emits drawn tables as pictures.
+- General visual table classification when Docling emits a picture and there is no table-like caption.
 - Marker adapter.
 - Real OpenAI / Gemini / local VLM providers.
 - Vector database ingestion.

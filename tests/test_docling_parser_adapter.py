@@ -275,3 +275,60 @@ def test_docling_parser_crops_table_asset_and_preserves_structure(tmp_path):
     evidence = next(chunk for chunk in chunks if chunk.chunk_type == "evidence_unit" and table.element_id in chunk.source_element_ids)
     assert table.asset_path in evidence.related_assets
     assert "assets/" not in evidence.text_for_embedding
+
+
+class _FakeTablePictureDoclingDocument:
+    def export_to_markdown(self):
+        return ""
+
+    def export_to_dict(self):
+        return {
+            "pages": {"1": {"size": {"width": 320, "height": 240}}},
+            "body": {"children": [{"$ref": "#/texts/0"}, {"$ref": "#/pictures/0"}]},
+            "texts": [
+                {
+                    "self_ref": "#/texts/0",
+                    "label": "section_header",
+                    "text": "Table 2: Model comparison",
+                    "prov": [{"page_no": 1, "bbox": {"l": 40, "t": 205, "r": 190, "b": 190, "coord_origin": "BOTTOMLEFT"}}],
+                }
+            ],
+            "pictures": [
+                {
+                    "self_ref": "#/pictures/0",
+                    "label": "picture",
+                    "prov": [{"page_no": 1, "bbox": {"l": 40, "t": 180, "r": 260, "b": 90, "coord_origin": "BOTTOMLEFT"}}],
+                }
+            ],
+            "tables": [],
+        }
+
+
+class _FakeTablePictureConversionResult:
+    document = _FakeTablePictureDoclingDocument()
+
+
+class _FakeTablePictureConverter:
+    def convert(self, source):
+        return _FakeTablePictureConversionResult()
+
+
+def test_docling_parser_classifies_picture_with_table_caption_as_table_image(tmp_path):
+    pdf = tmp_path / "table_picture.pdf"
+    _make_table_pdf(pdf)
+    out = tmp_path / "out"
+
+    doc = DoclingParser(converter_factory=_FakeTablePictureConverter).parse(pdf, out)
+
+    table_image = next(el for el in doc.elements if el.type == "table_image")
+    assert table_image.asset_path == "assets/tables/p0001_table001.png"
+    assert (out / table_image.asset_path).exists()
+    assert table_image.caption_nearby == "Table 2: Model comparison"
+    assert table_image.description_status == "pending"
+    assert table_image.metadata["parser_block_type"] == "docling_table_image"
+    assert table_image.metadata["visual_category"] == "table"
+    md = export_markdown(doc)
+    assert "![表格圖片：第 1 頁，待描述](assets/tables/p0001_table001.png)" in md
+    visual = next(chunk for chunk in build_chunks(doc) if chunk.chunk_type == "visual")
+    assert visual.asset_path == table_image.asset_path
+    assert "assets/" not in visual.text_for_embedding
